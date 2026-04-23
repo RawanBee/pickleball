@@ -1,8 +1,36 @@
-/** Half-height of the goal opening (full opening = 2 × this). */
-export const GOAL_OPENING_HALF = 58;
+/** Inset of inner touchline from canvas edge (matches field markings). */
+export const FIELD_TOUCHLINE_INSET = 16;
 
-/** Ball center past this x (from left / from right) counts as in the net, with y in the mouth. */
-export const GOAL_DEPTH = 22;
+const R_GOAL_AREA_ALONG = 18.32 / 68;
+const R_GOAL_AREA_DEPTH = 5.5 / 105;
+
+export function innerFieldWidth(fieldWidth: number): number {
+  return fieldWidth - 2 * FIELD_TOUCHLINE_INSET;
+}
+
+export function innerFieldHeight(fieldHeight: number): number {
+  return fieldHeight - 2 * FIELD_TOUCHLINE_INSET;
+}
+
+/** Half-height of goal mouth — matches 6-yard box span along the touchline. */
+export function goalOpeningHalf(fieldHeight: number): number {
+  return (innerFieldHeight(fieldHeight) * R_GOAL_AREA_ALONG) / 2;
+}
+
+/** Depth of goal mouth from goal line — matches 6-yard box depth into the pitch. */
+export function goalDepth(fieldWidth: number): number {
+  return innerFieldWidth(fieldWidth) * R_GOAL_AREA_DEPTH;
+}
+
+/**
+ * Ball radius scaled to goal opening (similar to old 22px vs opening-half 58).
+ * Clamped so tiny / huge views stay playable.
+ */
+export function pitchBallRadius(fieldHeight: number): number {
+  const oh = goalOpeningHalf(fieldHeight);
+  const r = oh * 0.38;
+  return Math.max(12, Math.min(34, r));
+}
 
 /**
  * Returns which goal was scored, or null.
@@ -15,10 +43,12 @@ export function whichSideGoal(
   height: number
 ): "left" | "right" | null {
   const cy = height / 2;
-  const y0 = cy - GOAL_OPENING_HALF;
-  const y1 = cy + GOAL_OPENING_HALF;
+  const half = goalOpeningHalf(height);
+  const depth = goalDepth(width);
+  const y0 = cy - half;
+  const y1 = cy + half;
   if (by < y0 || by > y1) return null;
-  if (bx < GOAL_DEPTH) return "left";
-  if (bx > width - GOAL_DEPTH) return "right";
+  if (bx < depth) return "left";
+  if (bx > width - depth) return "right";
   return null;
 }

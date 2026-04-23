@@ -39,12 +39,13 @@ export function createGame(
   canvas: HTMLCanvasElement,
   opts: { onGoalSound: () => void }
 ): GameApi {
-  const ctx = canvas.getContext("2d")!;
+  const ctx = canvas.getContext("2d", { alpha: true })!;
   let width = canvas.width;
   /** Playable pitch height (physics, goals, finger mapping). */
   let fieldHeight = canvas.height;
   /** Full canvas height including HUD strip below the pitch. */
   let height = canvas.height;
+  let dpr = 1;
 
   let physics: PhysicsHandles = createPhysics(width, fieldHeight);
   const celebration: CelebrationState = createCelebration();
@@ -79,8 +80,11 @@ export function createGame(
     width = w;
     fieldHeight = pitchHeight;
     height = totalCanvasHeight(pitchHeight);
-    canvas.width = w;
-    canvas.height = height;
+    dpr = Math.min(2.5, Math.max(1, window.devicePixelRatio || 1));
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(height * dpr);
+    canvas.style.width = `${w}px`;
+    canvas.style.height = `${height}px`;
     Matter.World.clear(physics.engine.world, false);
     Matter.Engine.clear(physics.engine);
     physics = createPhysics(w, fieldHeight);
@@ -136,7 +140,7 @@ export function createGame(
       sideGoalArmed = true;
     }
 
-    drawField(ctx, width, fieldHeight, height, celebration.shake);
+    drawField(ctx, width, fieldHeight, height, celebration.shake, dpr);
     drawReferees(ctx, width, height, celebration, now);
     drawScoreboard(ctx, width, height, scoreLeft, scoreRight);
     drawBall(ctx, physics.ball, celebration.active ? goalGlow : 0);

@@ -1,20 +1,59 @@
 import Matter from "matter-js";
 import { getBallTexture, isBallTextureReady } from "./ballTexture";
 import type { CelebrationState } from "./celebration";
-import { GOAL_OPENING_HALF } from "./goals";
-import { BALL_R } from "./physicsWorld";
+import {
+  FIELD_TOUCHLINE_INSET,
+  goalDepth,
+  goalOpeningHalf,
+  innerFieldHeight,
+  innerFieldWidth,
+} from "./goals";
 import type { FingerState } from "./types";
+
+/** Referee leg stroke ends here (local Y); keep in sync with `drawReferees` foot placement. */
+const REFEREE_LEG_END_Y = 11;
+
+/** FIFA-ish ratios vs full pitch length (105m) and width (68m); used for horizontal goal layout. */
+const R_PEN_DEPTH = 16.5 / 105;
+const R_PEN_ALONG = 40.32 / 68;
+const R_CENTER_R = 9.15 / 68;
+const R_PEN_SPOT = 11 / 105;
+const R_PEN_ARC = 9.15 / 105;
+const R_CORNER_ARC = 1 / 105;
+
+/** Appends one penalty-area D arc to the current path (caller strokes). */
+function addPenaltyDArcToPath(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  R: number,
+  boxEdgeX: number,
+  side: "left" | "right"
+): void {
+  const dx = boxEdgeX - cx;
+  const sq = R * R - dx * dx;
+  if (sq <= 0) return;
+  const dy = Math.sqrt(sq);
+  const a0 = Math.atan2(-dy, dx);
+  const a1 = Math.atan2(dy, dx);
+  if (side === "left") {
+    ctx.arc(cx, cy, R, a0, a1, false);
+  } else {
+    ctx.arc(cx, cy, R, a1, a0, false);
+  }
+}
 
 export function drawField(
   ctx: CanvasRenderingContext2D,
   width: number,
   fieldHeight: number,
   canvasHeight: number,
-  shake: number
+  shake: number,
+  dpr: number
 ): void {
   const ox = (Math.random() - 0.5) * shake;
   const oy = (Math.random() - 0.5) * shake;
-  ctx.setTransform(1, 0, 0, 1, ox, oy);
+  ctx.setTransform(dpr, 0, 0, dpr, ox * dpr, oy * dpr);
 
   const fh = fieldHeight;
 
@@ -24,41 +63,77 @@ export function drawField(
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, width, fh);
 
-  ctx.strokeStyle = "rgba(255,255,255,0.12)";
-  ctx.lineWidth = 2;
-  const step = 48;
-  for (let x = 0; x <= width; x += step) {
-    ctx.beginPath();
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x, fh);
-    ctx.stroke();
-  }
-  for (let y = 0; y <= fh; y += step) {
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(width, y);
-    ctx.stroke();
-  }
+  const m = FIELD_TOUCHLINE_INSET;
+  const iw = innerFieldWidth(width);
+  const ih = innerFieldHeight(fh);
+  const cy = fh / 2;
+  const oh = goalOpeningHalf(fh);
+  const gaDepth = goalDepth(width);
 
-  ctx.strokeStyle = "rgba(255,255,255,0.35)";
+  const penDepth = iw * R_PEN_DEPTH;
+  const penHalfY = (ih * R_PEN_ALONG) / 2;
+  const centerR = ih * R_CENTER_R;
+  const penArcR = iw * R_PEN_ARC;
+  const spotLeftX = m + iw * R_PEN_SPOT;
+  const spotRightX = width - m - iw * R_PEN_SPOT;
+  const boxOuterLeftX = m + penDepth;
+  const boxOuterRightX = width - m - penDepth;
+  const cornerR = Math.max(7, Math.min(iw, ih) * R_CORNER_ARC);
+
+  const line = "rgba(255,255,255,0.38)";
+  ctx.strokeStyle = line;
   ctx.lineWidth = 3;
-  ctx.strokeRect(16, 16, width - 32, fh - 32);
+  ctx.lineJoin = "miter";
+  ctx.strokeRect(m, m, iw, ih);
 
   ctx.beginPath();
-  ctx.moveTo(width / 2, 16);
-  ctx.lineTo(width / 2, fh - 16);
+  ctx.moveTo(width / 2, m);
+  ctx.lineTo(width / 2, fh - m);
   ctx.stroke();
 
   ctx.beginPath();
-  ctx.arc(width / 2, fh / 2, 64, 0, Math.PI * 2);
+  ctx.arc(width / 2, cy, centerR, 0, Math.PI * 2);
   ctx.stroke();
 
-  const y0 = fh / 2 - GOAL_OPENING_HALF;
-  const y1 = fh / 2 + GOAL_OPENING_HALF;
-  const postXL = 12;
-  const postXR = width - 12;
-  const edgeIn = 4;
-  const pad = 20;
+  ctx.fillStyle = "rgba(255,255,255,0.95)";
+  ctx.beginPath();
+  ctx.arc(width / 2, cy, 2.8, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = line;
+  ctx.strokeRect(m, cy - oh, gaDepth, oh * 2);
+  ctx.strokeRect(m, cy - penHalfY, penDepth, penHalfY * 2);
+  ctx.strokeRect(width - m - gaDepth, cy - oh, gaDepth, oh * 2);
+  ctx.strokeRect(width - m - penDepth, cy - penHalfY, penDepth, penHalfY * 2);
+
+  ctx.beginPath();
+  ctx.arc(spotLeftX, cy, 2.8, 0, Math.PI * 2);
+  ctx.arc(spotRightX, cy, 2.8, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.beginPath();
+  addPenaltyDArcToPath(ctx, spotLeftX, cy, penArcR, boxOuterLeftX, "left");
+  ctx.stroke();
+
+  ctx.beginPath();
+  addPenaltyDArcToPath(ctx, spotRightX, cy, penArcR, boxOuterRightX, "right");
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(m, m, cornerR, 0, Math.PI / 2, false);
+  ctx.moveTo(width - m, m + cornerR);
+  ctx.arc(width - m, m, cornerR, Math.PI / 2, Math.PI, false);
+  ctx.moveTo(width - m - cornerR, fh - m);
+  ctx.arc(width - m, fh - m, cornerR, Math.PI, (3 * Math.PI) / 2, false);
+  ctx.moveTo(m + cornerR, fh - m);
+  ctx.arc(m, fh - m, cornerR, (3 * Math.PI) / 2, Math.PI * 2, false);
+  ctx.stroke();
+
+  const y0 = cy - oh;
+  const y1 = cy + oh;
+  const postXL = m;
+  const postXR = width - m;
+  const netD = gaDepth;
 
   ctx.strokeStyle = "rgba(255,255,255,0.92)";
   ctx.lineWidth = 4;
@@ -66,34 +141,34 @@ export function drawField(
   ctx.lineJoin = "round";
 
   ctx.beginPath();
-  ctx.moveTo(postXL, pad);
+  ctx.moveTo(postXL, m);
   ctx.lineTo(postXL, y0);
   ctx.moveTo(postXL, y1);
-  ctx.lineTo(postXL, fh - pad);
+  ctx.lineTo(postXL, fh - m);
   ctx.stroke();
   ctx.beginPath();
-  ctx.moveTo(edgeIn, y0);
-  ctx.lineTo(postXL + 8, y0);
-  ctx.moveTo(edgeIn, y1);
-  ctx.lineTo(postXL + 8, y1);
+  ctx.moveTo(postXL, y0);
+  ctx.lineTo(postXL + netD, y0);
+  ctx.moveTo(postXL, y1);
+  ctx.lineTo(postXL + netD, y1);
   ctx.stroke();
 
   ctx.beginPath();
-  ctx.moveTo(postXR, pad);
+  ctx.moveTo(postXR, m);
   ctx.lineTo(postXR, y0);
   ctx.moveTo(postXR, y1);
-  ctx.lineTo(postXR, fh - pad);
+  ctx.lineTo(postXR, fh - m);
   ctx.stroke();
   ctx.beginPath();
-  ctx.moveTo(width - edgeIn, y0);
-  ctx.lineTo(postXR - 8, y0);
-  ctx.moveTo(width - edgeIn, y1);
-  ctx.lineTo(postXR - 8, y1);
+  ctx.moveTo(postXR, y0);
+  ctx.lineTo(postXR - netD, y0);
+  ctx.moveTo(postXR, y1);
+  ctx.lineTo(postXR - netD, y1);
   ctx.stroke();
 
   ctx.fillStyle = "rgba(0,0,0,0.12)";
-  ctx.fillRect(0, y0, 26, y1 - y0);
-  ctx.fillRect(width - 26, y0, 26, y1 - y0);
+  ctx.fillRect(0, y0, netD, y1 - y0);
+  ctx.fillRect(width - netD, y0, netD, y1 - y0);
 
   const hudH = canvasHeight - fh;
   const hudG = ctx.createLinearGradient(0, fh, 0, canvasHeight);
@@ -129,60 +204,77 @@ function drawOneReferee(
 
   const shirt = "#141820";
   const stripe = "#f2c12e";
+  const skin = "#e8bc9a";
 
-  ctx.fillStyle = "rgba(0,0,0,0.22)";
+  ctx.fillStyle = "rgba(0,0,0,0.2)";
   ctx.beginPath();
-  ctx.ellipse(0, 3, 15, 5, 0, 0, Math.PI * 2);
+  ctx.ellipse(0, 3, 11, 4, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.strokeStyle = "#0a0c10";
-  ctx.lineWidth = 4;
-  ctx.lineCap = "round";
-  ctx.beginPath();
-  ctx.moveTo(-2, -2);
-  ctx.lineTo(-10, 28);
-  ctx.moveTo(2, -2);
-  ctx.lineTo(10, 28);
-  ctx.stroke();
+  const waistY = -12;
 
-  ctx.fillStyle = "#0d1118";
-  ctx.fillRect(-13, -6, 26, 14);
-
+  const shirtH = 18;
   ctx.fillStyle = shirt;
-  ctx.fillRect(-14, -38, 28, 34);
+  ctx.fillRect(-9, -30, 18, shirtH);
   ctx.strokeStyle = "#05070a";
   ctx.lineWidth = 1.5;
-  ctx.strokeRect(-14, -38, 28, 34);
+  ctx.strokeRect(-9, -30, 18, shirtH);
 
   ctx.fillStyle = stripe;
-  ctx.fillRect(-3, -36, 6, 30);
+  ctx.fillRect(-2, -28, 4, 14);
 
-  ctx.fillStyle = "#e8bc9a";
-  ctx.fillRect(-5, -44, 10, 8);
+  const headCy = -48;
+  const headR = 14;
+
+  ctx.fillStyle = skin;
+  ctx.fillRect(-3, -36, 6, 7);
 
   ctx.beginPath();
-  ctx.arc(0, -52, 9, 0, Math.PI * 2);
+  ctx.arc(0, headCy, headR, 0, Math.PI * 2);
   ctx.fill();
   ctx.strokeStyle = "#05070a";
-  ctx.lineWidth = 1.2;
+  ctx.lineWidth = 1.4;
+  ctx.stroke();
+
+  ctx.fillStyle = "rgba(255,200,190,0.55)";
+  ctx.beginPath();
+  ctx.arc(-7, headCy + 2, 3.2, 0, Math.PI * 2);
+  ctx.arc(7, headCy + 2, 3.2, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "#fff";
+  ctx.beginPath();
+  ctx.ellipse(-5, headCy - 2, 3.2, 4, 0, 0, Math.PI * 2);
+  ctx.ellipse(5, headCy - 2, 3.2, 4, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#1a1a22";
+  ctx.beginPath();
+  ctx.arc(-4, headCy - 1, 1.6, 0, Math.PI * 2);
+  ctx.arc(6, headCy - 1, 1.6, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = "#2a1810";
+  ctx.lineWidth = 1.1;
+  ctx.beginPath();
+  ctx.arc(0, headCy + 4, 4, 0.15 * Math.PI, 0.85 * Math.PI);
   ctx.stroke();
 
   ctx.strokeStyle = "#333";
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(6, -48);
-  ctx.lineTo(13, -45);
+  ctx.moveTo(9, headCy - 2);
+  ctx.lineTo(15, headCy + 1);
   ctx.stroke();
 
-  const sy = -40;
-  const lax0 = -18;
-  const lay0 = -8;
-  const lax1 = -22;
-  const lay1 = -56;
-  const rax0 = 18;
-  const ray0 = -8;
-  const rax1 = 22;
-  const ray1 = -56;
+  const sy = -31;
+  const lax0 = -12;
+  const lay0 = -10;
+  const lax1 = -17;
+  const lay1 = -58;
+  const rax0 = 12;
+  const ray0 = -10;
+  const rax1 = 17;
+  const ray1 = -58;
 
   const lax = lax0 + (lax1 - lax0) * t;
   const lay = lay0 + (lay1 - lay0) * t;
@@ -190,20 +282,30 @@ function drawOneReferee(
   const ray = ray0 + (ray1 - ray0) * t;
 
   ctx.strokeStyle = shirt;
-  ctx.lineWidth = 5;
+  ctx.lineWidth = 4;
   ctx.lineCap = "round";
   ctx.beginPath();
-  ctx.moveTo(-10, sy);
+  ctx.moveTo(-7, sy);
   ctx.lineTo(lax, lay);
-  ctx.moveTo(10, sy);
+  ctx.moveTo(7, sy);
   ctx.lineTo(rax, ray);
   ctx.stroke();
 
-  ctx.fillStyle = "#e8bc9a";
+  ctx.fillStyle = skin;
   ctx.beginPath();
-  ctx.arc(lax, lay, 3.5, 0, Math.PI * 2);
-  ctx.arc(rax, ray, 3.5, 0, Math.PI * 2);
+  ctx.arc(lax, lay, 3.2, 0, Math.PI * 2);
+  ctx.arc(rax, ray, 3.2, 0, Math.PI * 2);
   ctx.fill();
+
+  ctx.strokeStyle = "#0a0c10";
+  ctx.lineWidth = 3;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(-1, waistY);
+  ctx.lineTo(-4, REFEREE_LEG_END_Y);
+  ctx.moveTo(1, waistY);
+  ctx.lineTo(4, REFEREE_LEG_END_Y);
+  ctx.stroke();
 
   ctx.restore();
 }
@@ -215,7 +317,8 @@ export function drawReferees(
   celebration: CelebrationState,
   now: number
 ): void {
-  const footY = canvasHeight - 42;
+  const scoreH = 46;
+  const footY = canvasHeight - scoreH - REFEREE_LEG_END_Y - 2;
   const leftX = 76;
   const rightX = width - 76;
 
@@ -285,7 +388,8 @@ export function drawBall(
   const ang = ball.angle;
 
   const pulse = goalGlow > 0 ? 1 + 0.08 * Math.sin(goalGlow * 0.02) : 1;
-  const r = BALL_R * pulse;
+  const baseR = ball.circleRadius ?? 18;
+  const r = baseR * pulse;
 
   ctx.save();
   ctx.translate(x, y);
@@ -295,6 +399,8 @@ export function drawBall(
   ctx.clip();
 
   if (isBallTextureReady()) {
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
     ctx.drawImage(getBallTexture(), -r, -r, r * 2, r * 2);
   } else {
     const grd = ctx.createRadialGradient(-6, -6, 4, 0, 0, r);

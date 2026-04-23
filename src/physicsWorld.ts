@@ -1,5 +1,5 @@
 import Matter from "matter-js";
-import { GOAL_OPENING_HALF } from "./goals";
+import { goalOpeningHalf, pitchBallRadius } from "./goals";
 
 const { Engine, World, Bodies, Body } = Matter;
 
@@ -9,10 +9,11 @@ export type PhysicsHandles = {
   wallThickness: number;
 };
 
-const BALL_R = 22;
 const FINGER_R = 36;
-/** Same overlap band as kicks — finger “touches” the ball inside this distance. */
-const TOUCH_DIST = BALL_R + FINGER_R * 0.85;
+
+function ballRadius(ball: Matter.Body): number {
+  return ball.circleRadius ?? 0;
+}
 
 export function createPhysics(width: number, height: number): PhysicsHandles {
   const engine = Engine.create({ gravity: { x: 0, y: 0, scale: 0 } });
@@ -20,8 +21,10 @@ export function createPhysics(width: number, height: number): PhysicsHandles {
 
   const t = 80;
   const h = height;
-  const ySplitTop = h / 2 - GOAL_OPENING_HALF;
-  const ySplitBot = h / 2 + GOAL_OPENING_HALF;
+  const halfOpen = goalOpeningHalf(h);
+  const ySplitTop = h / 2 - halfOpen;
+  const ySplitBot = h / 2 + halfOpen;
+  const ballR = pitchBallRadius(h);
 
   const hLeftTop = ySplitTop - -t;
   const cyLeftTop = -t + hLeftTop / 2;
@@ -42,7 +45,7 @@ export function createPhysics(width: number, height: number): PhysicsHandles {
     Bodies.rectangle(width + t / 2, cyRightBot, t, hRightBot, { isStatic: true }),
   ];
 
-  const ball = Bodies.circle(width / 2, height / 2, BALL_R, {
+  const ball = Bodies.circle(width / 2, height / 2, ballR, {
     restitution: 0.92,
     friction: 0,
     frictionAir: 0,
@@ -70,7 +73,7 @@ export function isFingerOnBall(
   const dist = Matter.Vector.magnitude(
     Matter.Vector.sub(ball.position, { x: fingerX, y: fingerY })
   );
-  return dist <= TOUCH_DIST;
+  return dist <= ballRadius(ball) + FINGER_R * 0.85;
 }
 
 /** One-shot impulse when a touch is registered (caller handles edge detection). */
@@ -93,7 +96,7 @@ export function separateBallFromFinger(
   const { ball } = handles;
   const delta = Matter.Vector.sub(ball.position, { x: fingerX, y: fingerY });
   const dist = Matter.Vector.magnitude(delta);
-  const min = BALL_R + FINGER_R * 0.9;
+  const min = ballRadius(ball) + FINGER_R * 0.9;
   if (dist > 0 && dist < min) {
     const n = Matter.Vector.normalise(delta);
     const push = Matter.Vector.mult(n, min - dist + 0.5);
@@ -101,4 +104,4 @@ export function separateBallFromFinger(
   }
 }
 
-export { BALL_R, FINGER_R };
+export { FINGER_R };
