@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gesture Football</title>
+  </head>
+  <body>
+    <div id="app">
+      <header class="hud">
+        <h1>Gesture Football</h1>
+        <p class="hint">Allow camera · Move your index finger to kick the ball into a corner</p>
+        <p id="status" class="status">Loading…</p>
+      </header>
+      <div class="stage-wrap">
+        <canvas id="game" width="960" height="540"></canvas>
+        <video id="cam" playsinline muted></video>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
