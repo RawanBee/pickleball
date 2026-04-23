@@ -8,18 +8,21 @@ import type { FingerState } from "./types";
 export function drawField(
   ctx: CanvasRenderingContext2D,
   width: number,
-  height: number,
+  fieldHeight: number,
+  canvasHeight: number,
   shake: number
 ): void {
   const ox = (Math.random() - 0.5) * shake;
   const oy = (Math.random() - 0.5) * shake;
   ctx.setTransform(1, 0, 0, 1, ox, oy);
 
-  const g = ctx.createLinearGradient(0, 0, 0, height);
+  const fh = fieldHeight;
+
+  const g = ctx.createLinearGradient(0, 0, 0, fh);
   g.addColorStop(0, "#1a4d2e");
   g.addColorStop(1, "#0f331f");
   ctx.fillStyle = g;
-  ctx.fillRect(0, 0, width, height);
+  ctx.fillRect(0, 0, width, fh);
 
   ctx.strokeStyle = "rgba(255,255,255,0.12)";
   ctx.lineWidth = 2;
@@ -27,10 +30,10 @@ export function drawField(
   for (let x = 0; x <= width; x += step) {
     ctx.beginPath();
     ctx.moveTo(x, 0);
-    ctx.lineTo(x, height);
+    ctx.lineTo(x, fh);
     ctx.stroke();
   }
-  for (let y = 0; y <= height; y += step) {
+  for (let y = 0; y <= fh; y += step) {
     ctx.beginPath();
     ctx.moveTo(0, y);
     ctx.lineTo(width, y);
@@ -39,19 +42,19 @@ export function drawField(
 
   ctx.strokeStyle = "rgba(255,255,255,0.35)";
   ctx.lineWidth = 3;
-  ctx.strokeRect(16, 16, width - 32, height - 32);
+  ctx.strokeRect(16, 16, width - 32, fh - 32);
 
   ctx.beginPath();
   ctx.moveTo(width / 2, 16);
-  ctx.lineTo(width / 2, height - 16);
+  ctx.lineTo(width / 2, fh - 16);
   ctx.stroke();
 
   ctx.beginPath();
-  ctx.arc(width / 2, height / 2, 64, 0, Math.PI * 2);
+  ctx.arc(width / 2, fh / 2, 64, 0, Math.PI * 2);
   ctx.stroke();
 
-  const y0 = height / 2 - GOAL_OPENING_HALF;
-  const y1 = height / 2 + GOAL_OPENING_HALF;
+  const y0 = fh / 2 - GOAL_OPENING_HALF;
+  const y1 = fh / 2 + GOAL_OPENING_HALF;
   const postXL = 12;
   const postXR = width - 12;
   const edgeIn = 4;
@@ -66,7 +69,7 @@ export function drawField(
   ctx.moveTo(postXL, pad);
   ctx.lineTo(postXL, y0);
   ctx.moveTo(postXL, y1);
-  ctx.lineTo(postXL, height - pad);
+  ctx.lineTo(postXL, fh - pad);
   ctx.stroke();
   ctx.beginPath();
   ctx.moveTo(edgeIn, y0);
@@ -79,7 +82,7 @@ export function drawField(
   ctx.moveTo(postXR, pad);
   ctx.lineTo(postXR, y0);
   ctx.moveTo(postXR, y1);
-  ctx.lineTo(postXR, height - pad);
+  ctx.lineTo(postXR, fh - pad);
   ctx.stroke();
   ctx.beginPath();
   ctx.moveTo(width - edgeIn, y0);
@@ -91,6 +94,186 @@ export function drawField(
   ctx.fillStyle = "rgba(0,0,0,0.12)";
   ctx.fillRect(0, y0, 26, y1 - y0);
   ctx.fillRect(width - 26, y0, 26, y1 - y0);
+
+  const hudH = canvasHeight - fh;
+  const hudG = ctx.createLinearGradient(0, fh, 0, canvasHeight);
+  hudG.addColorStop(0, "#243d34");
+  hudG.addColorStop(0.55, "#1e332c");
+  hudG.addColorStop(1, "#182a25");
+  ctx.fillStyle = hudG;
+  ctx.fillRect(0, fh, width, hudH);
+  ctx.strokeStyle = "rgba(255,255,255,0.28)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(0, fh);
+  ctx.lineTo(width, fh);
+  ctx.stroke();
+}
+
+function smoothstep01(t: number): number {
+  const x = Math.max(0, Math.min(1, t));
+  return x * x * (3 - 2 * x);
+}
+
+function drawOneReferee(
+  ctx: CanvasRenderingContext2D,
+  footX: number,
+  footY: number,
+  flip: boolean,
+  armRaise: number
+): void {
+  const t = smoothstep01(armRaise);
+  ctx.save();
+  ctx.translate(footX, footY);
+  if (flip) ctx.scale(-1, 1);
+
+  const shirt = "#141820";
+  const stripe = "#f2c12e";
+
+  ctx.fillStyle = "rgba(0,0,0,0.22)";
+  ctx.beginPath();
+  ctx.ellipse(0, 3, 15, 5, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = "#0a0c10";
+  ctx.lineWidth = 4;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(-2, -2);
+  ctx.lineTo(-10, 28);
+  ctx.moveTo(2, -2);
+  ctx.lineTo(10, 28);
+  ctx.stroke();
+
+  ctx.fillStyle = "#0d1118";
+  ctx.fillRect(-13, -6, 26, 14);
+
+  ctx.fillStyle = shirt;
+  ctx.fillRect(-14, -38, 28, 34);
+  ctx.strokeStyle = "#05070a";
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(-14, -38, 28, 34);
+
+  ctx.fillStyle = stripe;
+  ctx.fillRect(-3, -36, 6, 30);
+
+  ctx.fillStyle = "#e8bc9a";
+  ctx.fillRect(-5, -44, 10, 8);
+
+  ctx.beginPath();
+  ctx.arc(0, -52, 9, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "#05070a";
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
+
+  ctx.strokeStyle = "#333";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(6, -48);
+  ctx.lineTo(13, -45);
+  ctx.stroke();
+
+  const sy = -40;
+  const lax0 = -18;
+  const lay0 = -8;
+  const lax1 = -22;
+  const lay1 = -56;
+  const rax0 = 18;
+  const ray0 = -8;
+  const rax1 = 22;
+  const ray1 = -56;
+
+  const lax = lax0 + (lax1 - lax0) * t;
+  const lay = lay0 + (lay1 - lay0) * t;
+  const rax = rax0 + (rax1 - rax0) * t;
+  const ray = ray0 + (ray1 - ray0) * t;
+
+  ctx.strokeStyle = shirt;
+  ctx.lineWidth = 5;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(-10, sy);
+  ctx.lineTo(lax, lay);
+  ctx.moveTo(10, sy);
+  ctx.lineTo(rax, ray);
+  ctx.stroke();
+
+  ctx.fillStyle = "#e8bc9a";
+  ctx.beginPath();
+  ctx.arc(lax, lay, 3.5, 0, Math.PI * 2);
+  ctx.arc(rax, ray, 3.5, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+export function drawReferees(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  canvasHeight: number,
+  celebration: CelebrationState,
+  now: number
+): void {
+  const footY = canvasHeight - 42;
+  const leftX = 76;
+  const rightX = width - 76;
+
+  let leftRaise = 0;
+  let rightRaise = 0;
+  if (celebration.active && celebration.goalSide) {
+    const u = Math.min(1, (now - celebration.startedAt) / 280);
+    if (celebration.goalSide === "left") leftRaise = u;
+    else rightRaise = u;
+  }
+
+  drawOneReferee(ctx, leftX, footY, false, leftRaise);
+  drawOneReferee(ctx, rightX, footY, true, rightRaise);
+}
+
+export function drawScoreboard(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  canvasHeight: number,
+  scoreLeft: number,
+  scoreRight: number
+): void {
+  const h = 46;
+  const top = canvasHeight - h;
+  ctx.save();
+  ctx.fillStyle = "rgba(0,0,0,0.55)";
+  ctx.fillRect(0, top, width, h);
+  ctx.strokeStyle = "rgba(255,255,255,0.25)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, top);
+  ctx.lineTo(width, top);
+  ctx.stroke();
+
+  const xl = width * 0.22;
+  const xr = width * 0.78;
+  const yLabel = top + 14;
+  const yNum = top + 32;
+
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "rgba(200, 230, 210, 0.85)";
+  ctx.font = "600 10px system-ui, sans-serif";
+  ctx.letterSpacing = "0.12em";
+  ctx.fillText("LEFT GOAL", xl, yLabel);
+  ctx.fillText("RIGHT GOAL", xr, yLabel);
+  ctx.letterSpacing = "0";
+
+  ctx.font = "bold 30px system-ui, sans-serif";
+  ctx.fillStyle = "#ffffff";
+  ctx.fillText(String(scoreLeft), xl, yNum);
+  ctx.fillText(String(scoreRight), xr, yNum);
+
+  ctx.fillStyle = "rgba(255,255,255,0.4)";
+  ctx.font = "600 20px system-ui, sans-serif";
+  ctx.fillText("·", width / 2, yNum);
+
+  ctx.restore();
 }
 
 export function drawBall(

@@ -22,7 +22,10 @@ import {
   drawFinger,
   drawGoalBanner,
   drawParticles,
+  drawReferees,
+  drawScoreboard,
 } from "./render";
+import { totalCanvasHeight } from "./layout";
 import type { FingerState } from "./types";
 
 export type GameApi = {
@@ -38,9 +41,12 @@ export function createGame(
 ): GameApi {
   const ctx = canvas.getContext("2d")!;
   let width = canvas.width;
+  /** Playable pitch height (physics, goals, finger mapping). */
+  let fieldHeight = canvas.height;
+  /** Full canvas height including HUD strip below the pitch. */
   let height = canvas.height;
 
-  let physics: PhysicsHandles = createPhysics(width, height);
+  let physics: PhysicsHandles = createPhysics(width, fieldHeight);
   const celebration: CelebrationState = createCelebration();
   const smoothFinger = createFingerSmoother();
   let finger: FingerState = {
@@ -56,6 +62,8 @@ export function createGame(
   let fingerBallContact = false;
   /** After a side goal, false until the ball is no longer in either goal zone (avoid repeat triggers). */
   let sideGoalArmed = true;
+  let scoreLeft = 0;
+  let scoreRight = 0;
 
   function setFingerFromVideo(s: HandSample, vw: number, vh: number): void {
     if (!s.active) {
@@ -63,18 +71,19 @@ export function createGame(
       return;
     }
     const sx = (s.x / Math.max(1, vw)) * width;
-    const sy = (s.y / Math.max(1, vh)) * height;
+    const sy = (s.y / Math.max(1, vh)) * fieldHeight;
     finger = smoothFinger({ x: sx, y: sy, active: true });
   }
 
-  function resize(w: number, h: number): void {
+  function resize(w: number, pitchHeight: number): void {
     width = w;
-    height = h;
+    fieldHeight = pitchHeight;
+    height = totalCanvasHeight(pitchHeight);
     canvas.width = w;
-    canvas.height = h;
+    canvas.height = height;
     Matter.World.clear(physics.engine.world, false);
     Matter.Engine.clear(physics.engine);
-    physics = createPhysics(w, h);
+    physics = createPhysics(w, fieldHeight);
     fingerBallContact = false;
     sideGoalArmed = true;
   }
@@ -83,7 +92,7 @@ export function createGame(
     const dt = Math.min(48, now - lastNow);
     lastNow = now;
 
-    updateCelebration(celebration, dt, now, width, height);
+    updateCelebration(celebration, dt, now, width, fieldHeight);
     if (celebration.active) {
       goalGlow += dt * 0.06;
     } else {
@@ -113,23 +122,27 @@ export function createGame(
     }
 
     const b = physics.ball.position;
-    const side = whichSideGoal(b.x, b.y, width, height);
+    const side = whichSideGoal(b.x, b.y, width, fieldHeight);
     if (side && sideGoalArmed) {
-      startCelebration(celebration, b.x, b.y, now);
-      resetBall(physics.ball, width, height);
+      if (side === "left") scoreLeft += 1;
+      else scoreRight += 1;
+      startCelebration(celebration, b.x, b.y, now, side);
+      resetBall(physics.ball, width, fieldHeight);
       opts.onGoalSound();
       sideGoalArmed = false;
     }
     const b2 = physics.ball.position;
-    if (!whichSideGoal(b2.x, b2.y, width, height)) {
+    if (!whichSideGoal(b2.x, b2.y, width, fieldHeight)) {
       sideGoalArmed = true;
     }
 
-    drawField(ctx, width, height, celebration.shake);
+    drawField(ctx, width, fieldHeight, height, celebration.shake);
+    drawReferees(ctx, width, height, celebration, now);
+    drawScoreboard(ctx, width, height, scoreLeft, scoreRight);
     drawBall(ctx, physics.ball, celebration.active ? goalGlow : 0);
     drawFinger(ctx, finger);
     drawParticles(ctx, celebration);
-    drawGoalBanner(ctx, width, height, celebration, now);
+    drawGoalBanner(ctx, width, fieldHeight, celebration, now);
   }
 
   return {

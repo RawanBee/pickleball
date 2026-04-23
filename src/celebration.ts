@@ -5,6 +5,8 @@ type Particle = { x: number; y: number; vx: number; vy: number; life: number; hu
 export type CelebrationState = {
   active: boolean;
   until: number;
+  startedAt: number;
+  goalSide: "left" | "right" | null;
   particles: Particle[];
   shake: number;
 };
@@ -12,17 +14,27 @@ export type CelebrationState = {
 const DURATION_MS = 2200;
 
 export function createCelebration(): CelebrationState {
-  return { active: false, until: 0, particles: [], shake: 0 };
+  return {
+    active: false,
+    until: 0,
+    startedAt: 0,
+    goalSide: null,
+    particles: [],
+    shake: 0,
+  };
 }
 
 export function startCelebration(
   state: CelebrationState,
   centerX: number,
   centerY: number,
-  now: number
+  now: number,
+  goalSide: "left" | "right"
 ): void {
   state.active = true;
   state.until = now + DURATION_MS;
+  state.startedAt = now;
+  state.goalSide = goalSide;
   state.shake = 14;
   state.particles = [];
   for (let i = 0; i < 90; i++) {
@@ -60,6 +72,7 @@ export function updateCelebration(
 
   if (now >= state.until) {
     state.active = false;
+    state.goalSide = null;
     state.particles = [];
     state.shake = 0;
     return true;
