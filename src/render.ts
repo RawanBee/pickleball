@@ -1,6 +1,7 @@
 import Matter from "matter-js";
 import { getBallTexture, isBallTextureReady } from "./ballTexture";
 import type { CelebrationState } from "./celebration";
+import { GOAL_OPENING_HALF } from "./goals";
 import { BALL_R } from "./physicsWorld";
 import type { FingerState } from "./types";
 
@@ -48,6 +49,48 @@ export function drawField(
   ctx.beginPath();
   ctx.arc(width / 2, height / 2, 64, 0, Math.PI * 2);
   ctx.stroke();
+
+  const y0 = height / 2 - GOAL_OPENING_HALF;
+  const y1 = height / 2 + GOAL_OPENING_HALF;
+  const postXL = 12;
+  const postXR = width - 12;
+  const edgeIn = 4;
+  const pad = 20;
+
+  ctx.strokeStyle = "rgba(255,255,255,0.92)";
+  ctx.lineWidth = 4;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+
+  ctx.beginPath();
+  ctx.moveTo(postXL, pad);
+  ctx.lineTo(postXL, y0);
+  ctx.moveTo(postXL, y1);
+  ctx.lineTo(postXL, height - pad);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(edgeIn, y0);
+  ctx.lineTo(postXL + 8, y0);
+  ctx.moveTo(edgeIn, y1);
+  ctx.lineTo(postXL + 8, y1);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(postXR, pad);
+  ctx.lineTo(postXR, y0);
+  ctx.moveTo(postXR, y1);
+  ctx.lineTo(postXR, height - pad);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(width - edgeIn, y0);
+  ctx.lineTo(postXR - 8, y0);
+  ctx.moveTo(width - edgeIn, y1);
+  ctx.lineTo(postXR - 8, y1);
+  ctx.stroke();
+
+  ctx.fillStyle = "rgba(0,0,0,0.12)";
+  ctx.fillRect(0, y0, 26, y1 - y0);
+  ctx.fillRect(width - 26, y0, 26, y1 - y0);
 }
 
 export function drawBall(

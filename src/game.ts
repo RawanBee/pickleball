@@ -1,10 +1,12 @@
 import Matter from "matter-js";
 import {
   createCelebration,
+  resetBall,
   startCelebration,
   updateCelebration,
   type CelebrationState,
 } from "./celebration";
+import { whichSideGoal } from "./goals";
 import { createFingerSmoother, shotDeltaForTouch } from "./fingerInput";
 import type { HandSample } from "./handTracking";
 import {
@@ -22,8 +24,6 @@ import {
   drawParticles,
 } from "./render";
 import type { FingerState } from "./types";
-
-const CORNER_THRESHOLD = 40;
 
 export type GameApi = {
   resize: (w: number, h: number) => void;
@@ -54,17 +54,8 @@ export function createGame(
   let goalGlow = 0;
   /** True while finger overlaps ball; reset when overlap ends — next overlap = new shot. */
   let fingerBallContact = false;
-  /** After a corner goal, false until the ball leaves all corner zones (avoid repeat triggers). */
-  let cornerGoalArmed = true;
-
-  function cornerGoal(bx: number, by: number): boolean {
-    return (
-      (bx < CORNER_THRESHOLD && by < CORNER_THRESHOLD) ||
-      (bx > width - CORNER_THRESHOLD && by < CORNER_THRESHOLD) ||
-      (bx < CORNER_THRESHOLD && by > height - CORNER_THRESHOLD) ||
-      (bx > width - CORNER_THRESHOLD && by > height - CORNER_THRESHOLD)
-    );
-  }
+  /** After a side goal, false until the ball is no longer in either goal zone (avoid repeat triggers). */
+  let sideGoalArmed = true;
 
   function setFingerFromVideo(s: HandSample, vw: number, vh: number): void {
     if (!s.active) {
@@ -85,7 +76,7 @@ export function createGame(
     Matter.Engine.clear(physics.engine);
     physics = createPhysics(w, h);
     fingerBallContact = false;
-    cornerGoalArmed = true;
+    sideGoalArmed = true;
   }
 
   function step(now: number): void {
@@ -122,14 +113,16 @@ export function createGame(
     }
 
     const b = physics.ball.position;
-    const inCornerZone = cornerGoal(b.x, b.y);
-    if (inCornerZone && cornerGoalArmed) {
+    const side = whichSideGoal(b.x, b.y, width, height);
+    if (side && sideGoalArmed) {
       startCelebration(celebration, b.x, b.y, now);
-      cornerGoalArmed = false;
+      resetBall(physics.ball, width, height);
       opts.onGoalSound();
+      sideGoalArmed = false;
     }
-    if (!inCornerZone) {
-      cornerGoalArmed = true;
+    const b2 = physics.ball.position;
+    if (!whichSideGoal(b2.x, b2.y, width, height)) {
+      sideGoalArmed = true;
     }
 
     drawField(ctx, width, height, celebration.shake);

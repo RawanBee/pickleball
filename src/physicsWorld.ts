@@ -1,4 +1,5 @@
 import Matter from "matter-js";
+import { GOAL_OPENING_HALF } from "./goals";
 
 const { Engine, World, Bodies, Body } = Matter;
 
@@ -18,11 +19,27 @@ export function createPhysics(width: number, height: number): PhysicsHandles {
   const world = engine.world;
 
   const t = 80;
+  const h = height;
+  const ySplitTop = h / 2 - GOAL_OPENING_HALF;
+  const ySplitBot = h / 2 + GOAL_OPENING_HALF;
+
+  const hLeftTop = ySplitTop - -t;
+  const cyLeftTop = -t + hLeftTop / 2;
+  const hLeftBot = h + t - ySplitBot;
+  const cyLeftBot = ySplitBot + hLeftBot / 2;
+
+  const hRightTop = hLeftTop;
+  const cyRightTop = cyLeftTop;
+  const hRightBot = hLeftBot;
+  const cyRightBot = cyLeftBot;
+
   const walls = [
     Bodies.rectangle(width / 2, -t / 2, width + t * 2, t, { isStatic: true }),
     Bodies.rectangle(width / 2, height + t / 2, width + t * 2, t, { isStatic: true }),
-    Bodies.rectangle(-t / 2, height / 2, t, height + t * 2, { isStatic: true }),
-    Bodies.rectangle(width + t / 2, height / 2, t, height + t * 2, { isStatic: true }),
+    Bodies.rectangle(-t / 2, cyLeftTop, t, hLeftTop, { isStatic: true }),
+    Bodies.rectangle(-t / 2, cyLeftBot, t, hLeftBot, { isStatic: true }),
+    Bodies.rectangle(width + t / 2, cyRightTop, t, hRightTop, { isStatic: true }),
+    Bodies.rectangle(width + t / 2, cyRightBot, t, hRightBot, { isStatic: true }),
   ];
 
   const ball = Bodies.circle(width / 2, height / 2, BALL_R, {

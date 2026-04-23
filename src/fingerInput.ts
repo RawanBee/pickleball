@@ -59,7 +59,7 @@ export function createFingerSmoother() {
 
 /**
  * Impulse for one discrete “touch shot”: direction from finger motion if moving,
- * otherwise from finger → ball (ball pushed away from the finger).
+ * otherwise from finger => ball (ball pushed away from the finger).
  */
 export function shotDeltaForTouch(
   fingerVx: number,
