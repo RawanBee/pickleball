@@ -1,6 +1,7 @@
 import "./style.css";
 import { createGame } from "./game";
 import { createHandTracker } from "./handTracking";
+import { HUD_BELOW_PITCH } from "./layout";
 
 void bootstrap();
 
@@ -45,17 +46,68 @@ async function bootstrap() {
 
   const game = createGame(canvas, { onGoalSound: playGoalSound });
 
+  /** Pitch is 16:9; canvas adds `HUD_BELOW_PITCH` below the pitch. */
+  const PITCH_ASPECT = 16 / 9;
+  const MAX_PITCH_W = 1280;
+
+  let fitDebounce = 0;
+  let fitRaf = 0;
+
   function fitCanvas() {
-    const wrap = canvas.parentElement!;
-    const maxW = wrap.clientWidth;
-    const aspect = 16 / 9;
-    const w = Math.min(960, maxW);
-    const h = Math.round(w / aspect);
-    game.resize(w, h);
+    const wrap = canvas.parentElement;
+    if (!wrap) return;
+
+    const vv = window.visualViewport;
+    const wrapRect = wrap.getBoundingClientRect();
+    const wrapTop = wrapRect.top;
+    const marginBottom = 16;
+    const visibleBottom =
+      vv != null ? vv.offsetTop + vv.height : window.innerHeight;
+    const viewportAvail = Math.max(0, visibleBottom - wrapTop - marginBottom);
+
+    const ch = wrap.clientHeight;
+    const availH = Math.max(
+      80,
+      ch >= viewportAvail - 2
+        ? Math.min(ch - 8, viewportAvail)
+        : viewportAvail
+    );
+
+    const cw = wrap.clientWidth;
+    const fromHeight =
+      Math.max(0, availH - HUD_BELOW_PITCH) * PITCH_ASPECT;
+
+    let pitchW = Math.floor(Math.min(cw, fromHeight, MAX_PITCH_W));
+    if (!Number.isFinite(pitchW) || pitchW < 1) pitchW = 1;
+
+    const pitchH = Math.round(pitchW / PITCH_ASPECT);
+    game.resize(pitchW, pitchH);
+  }
+
+  function scheduleFit() {
+    window.clearTimeout(fitDebounce);
+    fitDebounce = window.setTimeout(() => {
+      cancelAnimationFrame(fitRaf);
+      fitRaf = requestAnimationFrame(() => {
+        fitCanvas();
+        fitRaf = requestAnimationFrame(fitCanvas);
+      });
+    }, 32);
+  }
+
+  function onOrientationChange() {
+    scheduleFit();
+    window.setTimeout(scheduleFit, 120);
+    window.setTimeout(scheduleFit, 340);
   }
 
   fitCanvas();
-  window.addEventListener("resize", fitCanvas);
+  window.addEventListener("resize", scheduleFit);
+  window.visualViewport?.addEventListener("resize", scheduleFit);
+  window.addEventListener("orientationchange", onOrientationChange);
+  window.screen.orientation?.addEventListener("change", onOrientationChange);
+  const ro = new ResizeObserver(() => scheduleFit());
+  ro.observe(canvas.parentElement!);
 
   async function startCamera() {
     setStatus("Requesting camera…");
@@ -88,6 +140,7 @@ async function bootstrap() {
   }
 
   setStatus("Show your hand — index finger kicks the ball");
+  scheduleFit();
 
   let raf = 0;
   function loop(t: number) {
@@ -99,6 +152,13 @@ async function bootstrap() {
   raf = requestAnimationFrame(loop);
 
   window.addEventListener("beforeunload", () => {
+    window.clearTimeout(fitDebounce);
+    cancelAnimationFrame(fitRaf);
+    window.removeEventListener("resize", scheduleFit);
+    window.visualViewport?.removeEventListener("resize", scheduleFit);
+    window.removeEventListener("orientationchange", onOrientationChange);
+    window.screen.orientation?.removeEventListener("change", onOrientationChange);
+    ro.disconnect();
     cancelAnimationFrame(raf);
     tracker.dispose();
     game.dispose();

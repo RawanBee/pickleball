@@ -21,6 +21,12 @@ const R_PEN_SPOT = 11 / 105;
 const R_PEN_ARC = 9.15 / 105;
 const R_CORNER_ARC = 1 / 105;
 
+/** Vertical mowing stripes across full canvas width (~14 on a full pitch). */
+const FIELD_STRIPE_COUNT = 14;
+/** Hybrid-grass greens: muted chroma (modern), ~10% luminance step (realistic stripe contrast). */
+const FIELD_STRIPE_DARK = "#1b3d2a";
+const FIELD_STRIPE_LIGHT = "#2c5f3d";
+
 /** Appends one penalty-area D arc to the current path (caller strokes). */
 function addPenaltyDArcToPath(
   ctx: CanvasRenderingContext2D,
@@ -57,11 +63,12 @@ export function drawField(
 
   const fh = fieldHeight;
 
-  const g = ctx.createLinearGradient(0, 0, 0, fh);
-  g.addColorStop(0, "#1a4d2e");
-  g.addColorStop(1, "#0f331f");
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, width, fh);
+  for (let i = 0; i < FIELD_STRIPE_COUNT; i++) {
+    const x0 = (i * width) / FIELD_STRIPE_COUNT;
+    const x1 = ((i + 1) * width) / FIELD_STRIPE_COUNT;
+    ctx.fillStyle = i % 2 === 0 ? FIELD_STRIPE_DARK : FIELD_STRIPE_LIGHT;
+    ctx.fillRect(x0, 0, x1 - x0 + 0.5, fh);
+  }
 
   const m = FIELD_TOUCHLINE_INSET;
   const iw = innerFieldWidth(width);
