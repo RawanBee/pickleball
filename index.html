@@ -15,9 +15,19 @@
         <!-- <p class="hint">Allow camera · Kick the ball into the left or right goal</p> -->
         <p id="status" class="status">Loading…</p>
       </header>
-      <div class="stage-wrap">
-        <canvas id="game" width="320" height="200"></canvas>
-        <video id="cam" playsinline muted></video>
+      <div class="stage-outer">
+        <aside class="cam-panel cam-panel--left" id="cam-panel-left">
+          <canvas class="cam-preview" aria-hidden="true"></canvas>
+          <span class="cam-panel__label">BLUE</span>
+        </aside>
+        <div class="stage-wrap">
+          <canvas id="game" width="320" height="200"></canvas>
+          <video id="cam" playsinline muted></video>
+        </div>
+        <aside class="cam-panel cam-panel--right" id="cam-panel-right">
+          <canvas class="cam-preview" aria-hidden="true"></canvas>
+          <span class="cam-panel__label">ORANGE</span>
+        </aside>
       </div>
     </div>
     <script type="module" src="/src/main.ts"></script>

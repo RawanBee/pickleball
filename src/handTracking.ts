@@ -19,7 +19,7 @@ async function makeLandmarker(delegate: "GPU" | "CPU") {
       delegate,
     },
     runningMode: "VIDEO",
-    numHands: 1,
+    numHands: 2,
   });
 }
 
@@ -34,23 +34,23 @@ export async function createHandTracker(video: HTMLVideoElement) {
   let lastTs = -1;
   let lastDetectMs = 0;
   const TRACK_INTERVAL_MS = 1000 / 30;
-  let lastSample: HandSample = { x: 0, y: 0, active: false };
+  let lastSamples: HandSample[] = [];
 
-  function detect(): HandSample {
+  function detect(): HandSample[] {
     if (video.readyState < 2) {
-      lastSample = { x: 0, y: 0, active: false };
-      return lastSample;
+      lastSamples = [];
+      return lastSamples;
     }
 
     const nowMs = performance.now();
     if (nowMs - lastDetectMs < TRACK_INTERVAL_MS) {
-      return lastSample;
+      return lastSamples;
     }
     lastDetectMs = nowMs;
 
     const ts = video.currentTime * 1000;
     if (ts === lastTs) {
-      return lastSample;
+      return lastSamples;
     }
     lastTs = ts;
 
@@ -58,23 +58,26 @@ export async function createHandTracker(video: HTMLVideoElement) {
     try {
       result = landmarker.detectForVideo(video, ts);
     } catch {
-      lastSample = { x: 0, y: 0, active: false };
-      return lastSample;
+      lastSamples = [];
+      return lastSamples;
     }
 
     if (!result.landmarks?.length) {
-      lastSample = { x: 0, y: 0, active: false };
-      return lastSample;
+      lastSamples = [];
+      return lastSamples;
     }
 
-    const tip = result.landmarks[0][INDEX_TIP];
     const w = video.videoWidth || 1;
     const h = video.videoHeight || 1;
-    const mirroredX = (1 - tip.x) * w;
-    const y = tip.y * h;
-
-    lastSample = { x: mirroredX, y, active: true };
-    return lastSample;
+    const samples: HandSample[] = [];
+    for (const hand of result.landmarks) {
+      const tip = hand[INDEX_TIP];
+      const mirroredX = (1 - tip.x) * w;
+      const y = tip.y * h;
+      samples.push({ x: mirroredX, y, active: true });
+    }
+    lastSamples = samples;
+    return lastSamples;
   }
 
   return { detect, dispose: () => landmarker.close() };

@@ -19,7 +19,7 @@ body {
 #app {
   box-sizing: border-box;
   width: 100%;
-  max-width: min(1200px, 100%);
+  max-width: 100%;
   min-height: 100dvh;
   margin: 0 auto;
   padding: max(1rem, env(safe-area-inset-top))
@@ -52,11 +52,70 @@ body {
   color: #9de4ff;
 }
 
-.stage-wrap {
-  position: relative;
+.stage-outer {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: clamp(10px, 2vw, 16px);
   width: 100%;
   margin-top: 1rem;
   flex: 1 1 0;
+  min-height: 0;
+}
+
+.cam-panel {
+  flex: 1 1 0;
+  min-width: clamp(80px, 12vw, 160px);
+  max-width: 15%;
+  display: flex;
+  flex-direction: column;
+  align-self: center;
+  height: auto;
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.35);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.4);
+}
+
+.cam-panel--left {
+  border: 2.5px solid #3da5ff;
+}
+
+.cam-panel--right {
+  border: 2.5px solid #ff8c42;
+}
+
+.cam-preview {
+  display: block;
+  flex: 0 0 auto;
+  width: 100%;
+  height: auto;
+}
+
+.cam-panel__label {
+  flex-shrink: 0;
+  padding: 0.45rem 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-align: center;
+}
+
+.cam-panel--left .cam-panel__label {
+  color: #3da5ff;
+  background: rgba(61, 165, 255, 0.12);
+}
+
+.cam-panel--right .cam-panel__label {
+  color: #ff8c42;
+  background: rgba(255, 140, 66, 0.12);
+}
+
+.stage-wrap {
+  position: relative;
+  flex: 1 1 0;
+  width: 100%;
+  min-width: 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -82,14 +141,28 @@ body {
     font-size: 0.8rem;
   }
 
-  .stage-wrap {
+  .stage-outer {
     margin-top: 0.4rem;
+    gap: 8px;
   }
+
 }
 
 @media (orientation: portrait) {
+  .stage-outer {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
   .stage-wrap {
+    flex: 1 1 100%;
+    width: 100%;
     justify-content: flex-start;
+  }
+
+  .cam-panel {
+    flex: 1 1 calc(15% - 8px);
+    max-width: calc(15% - 8px);
   }
 }
 

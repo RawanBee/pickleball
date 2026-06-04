@@ -1,4 +1,5 @@
 import "./style.css";
+import { createCameraPreviews } from "./cameraPreviews";
 import { createGame } from "./game";
 import { createHandTracker } from "./handTracking";
 import { HUD_BELOW_PITCH } from "./layout";
@@ -44,6 +45,10 @@ async function bootstrap() {
     }
   }
 
+  const leftPanel = document.getElementById("cam-panel-left")!;
+  const rightPanel = document.getElementById("cam-panel-right")!;
+  const cameraPreviews = createCameraPreviews(video, leftPanel, rightPanel);
+
   const game = createGame(canvas, { onGoalSound: playGoalSound });
 
   /** Pitch is 16:9; canvas adds `HUD_BELOW_PITCH` below the pitch. */
@@ -55,28 +60,23 @@ async function bootstrap() {
 
   function fitCanvas() {
     const wrap = canvas.parentElement;
+    const outer = document.querySelector(".stage-outer");
     if (!wrap) return;
 
     const vv = window.visualViewport;
-    const wrapRect = wrap.getBoundingClientRect();
-    const wrapTop = wrapRect.top;
+    const layoutRect = (outer ?? wrap).getBoundingClientRect();
     const marginBottom = 16;
     const visibleBottom =
       vv != null ? vv.offsetTop + vv.height : window.innerHeight;
-    const viewportAvail = Math.max(0, visibleBottom - wrapTop - marginBottom);
-
-    const ch = wrap.clientHeight;
-    const availH = Math.max(
-      80,
-      ch >= viewportAvail - 2
-        ? Math.min(ch - 8, viewportAvail)
-        : viewportAvail
+    const viewportAvail = Math.max(
+      0,
+      visibleBottom - layoutRect.top - marginBottom
     );
-
-    const cw = wrap.clientWidth;
+    const availH = Math.max(80, viewportAvail);
     const fromHeight =
       Math.max(0, availH - HUD_BELOW_PITCH) * PITCH_ASPECT;
 
+    const cw = wrap.clientWidth;
     let pitchW = Math.floor(Math.min(cw, fromHeight, MAX_PITCH_W));
     if (!Number.isFinite(pitchW) || pitchW < 1) pitchW = 1;
 
@@ -106,8 +106,9 @@ async function bootstrap() {
   window.visualViewport?.addEventListener("resize", scheduleFit);
   window.addEventListener("orientationchange", onOrientationChange);
   window.screen.orientation?.addEventListener("change", onOrientationChange);
+  const stageOuter = document.querySelector(".stage-outer");
   const ro = new ResizeObserver(() => scheduleFit());
-  ro.observe(canvas.parentElement!);
+  ro.observe(stageOuter ?? canvas.parentElement!);
 
   async function startCamera() {
     setStatus("Requesting camera…");
@@ -139,13 +140,14 @@ async function bootstrap() {
     return;
   }
 
-  setStatus("Show your hand — index finger kicks the ball");
+  setStatus("Show one or two hands — index fingers kick the ball");
   scheduleFit();
 
   let raf = 0;
   function loop(t: number) {
-    const sample = tracker.detect();
-    game.setFingerFromVideo(sample, video.videoWidth, video.videoHeight);
+    const samples = tracker.detect();
+    game.setFingerFromVideo(samples, video.videoWidth, video.videoHeight);
+    cameraPreviews.update();
     game.step(t);
     raf = requestAnimationFrame(loop);
   }

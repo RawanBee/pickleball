@@ -13,6 +13,11 @@ import type { FingerState } from "./types";
 /** Referee leg stroke ends here (local Y); keep in sync with `drawReferees` foot placement. */
 const REFEREE_LEG_END_Y = 11;
 
+export const COLOR_BLUE = "#3da5ff";
+export const COLOR_ORANGE = "#ff8c42";
+
+export type MatchWinner = "blue" | "orange" | null;
+
 /** FIFA-ish ratios vs full pitch length (105m) and width (68m); used for horizontal goal layout. */
 const R_PEN_DEPTH = 16.5 / 105;
 const R_PEN_ALONG = 40.32 / 68;
@@ -173,8 +178,9 @@ export function drawField(
   ctx.lineTo(postXR - netD, y1);
   ctx.stroke();
 
-  ctx.fillStyle = "rgba(0,0,0,0.12)";
+  ctx.fillStyle = "rgba(255, 140, 66, 0.14)";
   ctx.fillRect(0, y0, netD, y1 - y0);
+  ctx.fillStyle = "rgba(61, 165, 255, 0.14)";
   ctx.fillRect(width - netD, y0, netD, y1 - y0);
 
   const hudH = canvasHeight - fh;
@@ -345,8 +351,8 @@ export function drawScoreboard(
   ctx: CanvasRenderingContext2D,
   width: number,
   canvasHeight: number,
-  scoreLeft: number,
-  scoreRight: number
+  scoreBlue: number,
+  scoreOrange: number
 ): void {
   const h = 46;
   const top = canvasHeight - h;
@@ -367,17 +373,19 @@ export function drawScoreboard(
 
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillStyle = "rgba(200, 230, 210, 0.85)";
   ctx.font = "600 10px system-ui, sans-serif";
   ctx.letterSpacing = "0.12em";
-  ctx.fillText("LEFT GOAL", xl, yLabel);
-  ctx.fillText("RIGHT GOAL", xr, yLabel);
+  ctx.fillStyle = COLOR_BLUE;
+  ctx.fillText("BLUE", xl, yLabel);
+  ctx.fillStyle = COLOR_ORANGE;
+  ctx.fillText("ORANGE", xr, yLabel);
   ctx.letterSpacing = "0";
 
   ctx.font = "bold 30px system-ui, sans-serif";
-  ctx.fillStyle = "#ffffff";
-  ctx.fillText(String(scoreLeft), xl, yNum);
-  ctx.fillText(String(scoreRight), xr, yNum);
+  ctx.fillStyle = COLOR_BLUE;
+  ctx.fillText(String(scoreBlue), xl, yNum);
+  ctx.fillStyle = COLOR_ORANGE;
+  ctx.fillText(String(scoreOrange), xr, yNum);
 
   ctx.fillStyle = "rgba(255,255,255,0.4)";
   ctx.font = "600 20px system-ui, sans-serif";
@@ -434,14 +442,23 @@ export function drawBall(
   ctx.restore();
 }
 
+function hexToRgba(hex: string, alpha: number): string {
+  const h = hex.replace("#", "");
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 export function drawFinger(
   ctx: CanvasRenderingContext2D,
-  finger: FingerState | null
+  finger: FingerState | null,
+  color: string
 ): void {
   if (!finger?.isActive) return;
   ctx.save();
-  ctx.fillStyle = "rgba(120, 220, 255, 0.35)";
-  ctx.strokeStyle = "rgba(200, 250, 255, 0.9)";
+  ctx.fillStyle = hexToRgba(color, 0.35);
+  ctx.strokeStyle = hexToRgba(color, 0.9);
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.arc(finger.x, finger.y, 28, 0, Math.PI * 2);
@@ -481,4 +498,30 @@ export function drawGoalBanner(
     ctx.fillText("GOAL!", width / 2, height * 0.35 + 58);
     ctx.restore();
   }
+}
+
+export function drawWinBanner(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  winner: MatchWinner,
+  celebration: CelebrationState,
+  now: number
+): void {
+  if (!winner || !celebration.active) return;
+  const t = celebration.until - now;
+  if (t <= 1200) return;
+
+  const label = winner === "blue" ? "BLUE WINS" : "ORANGE WINS";
+  const color = winner === "blue" ? COLOR_BLUE : COLOR_ORANGE;
+
+  ctx.save();
+  ctx.fillStyle = "rgba(0,0,0,0.55)";
+  ctx.fillRect(0, height * 0.28, width, 110);
+  ctx.fillStyle = color;
+  ctx.font = "bold 44px system-ui, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(label, width / 2, height * 0.28 + 55);
+  ctx.restore();
 }
